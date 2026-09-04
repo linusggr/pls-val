@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Valorant Improvement Rating</title>
+<meta name="description" content="Tracks Valorant ranked performance relative to lobby difficulty and rank over time, and recommends ranked vs. deathmatch." />
+<meta name="theme-color" content="#0B0E12" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="VAL IR" />
+<link rel="manifest" href="manifest.json" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png" />
+<link rel="icon" href="icon-192.png" />
+<style>
+  :root {
+    --bg:#0B0E12; --panel:#12161B; --panelAlt:#181D24;
+    --border:#232A33; --borderStrong:#2E3742;
+    --text:#E7ECF0; --textDim:#8B96A3; --textFaint:#5C6673;
+    --accent:#4CC9F0; --accentSoft:rgba(76,201,240,0.14);
+    --good:#FFB020; --goodSoft:rgba(255,176,32,0.14);
+    --bad:#FB5B62; --badSoft:rgba(251,91,98,0.14);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; background:var(--bg); color:var(--text); }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    padding-bottom: 40px;
+  }
+  .mono { font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace; }
+  #app { max-width: 560px; margin: 0 auto; padding: 20px 16px 8px; }
+
+  .loading { min-height:100vh; display:flex; align-items:center; justify-content:center; color:var(--textDim); font-size:14px; }
+
+  .header { margin-bottom: 18px; }
+  .eyebrow { font-size:11px; text-transform:uppercase; letter-spacing:0.12em; color:var(--accent); }
+  .eyebrow.accent { color: var(--accent); }
+  .irrow { display:flex; align-items:baseline; gap:10px; margin-top:2px; }
+  .irbig { font-size:36px; font-weight:600; }
+  .trend { font-size:14px; }
+  .subtext { font-size:11px; color:var(--textFaint); margin-top:2px; }
+
+  .card { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:14px; }
+  .stack { display:flex; flex-direction:column; gap:8px; margin-bottom:14px; }
+  .small-text { font-size:12px; color:var(--textDim); }
+
+  .toggle { width:100%; background:none; border:none; color:var(--text); display:flex; justify-content:space-between; align-items:center; font-size:14px; font-weight:500; padding:0; cursor:pointer; }
+  .rowhead { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
+
+  .form { margin-top:12px; display:flex; flex-direction:column; gap:12px; }
+  .field { display:flex; flex-direction:column; gap:5px; }
+  .label { font-size:11px; text-transform:uppercase; letter-spacing:0.04em; color:var(--textDim); }
+  .grid3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .row-inline { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+
+  .inp, .sel {
+    background:var(--panelAlt); color:var(--text); border:1px solid var(--border);
+    border-radius:6px; padding:9px 10px; font-size:15px; width:100%;
+  }
+  .sel { padding:8px 6px; width:auto; font-size:14px; }
+  .inp.narrow { width:76px; }
+  .inp:focus, .sel:focus { outline:1px solid var(--accent); }
+
+  .btn-primary {
+    width:100%; background:var(--accent); color:#04141A; border:none; border-radius:8px;
+    padding:13px; font-size:14px; font-weight:600; cursor:pointer;
+  }
+  .btn-primary:active { opacity:0.85; }
+  .btn-secondary {
+    background:var(--panelAlt); color:var(--text); border:1px solid var(--border); border-radius:8px;
+    padding:9px 14px; font-size:13px; font-weight:500; cursor:pointer; white-space:nowrap;
+  }
+  .err { color:var(--bad); font-size:12px; margin-top:2px; }
+  .dmrow { display:flex; gap:8px; margin-top:12px; }
+
+  .accentcard { background:var(--accentSoft); border:1px solid rgba(76,201,240,0.3); }
+  .iconbtn { background:none; border:none; color:var(--textFaint); font-size:14px; cursor:pointer; padding:4px; }
+
+  .row { display:flex; justify-content:space-between; font-size:13px; padding:3px 0; gap:10px; }
+  .row.small { font-size:11px; }
+  .dim { color:var(--textDim); }
+  .bold { font-weight:700; }
+  .italic { font-style:italic; }
+  .empty { text-align:center; font-size:13px; color:var(--textDim); padding:22px 10px; }
+
+  .statgrid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; text-align:center; margin-top:8px; }
+  .statval { font-size:24px; }
+  .statlbl { font-size:11px; color:var(--textFaint); margin-top:2px; }
+  .statconf { font-size:10px; margin-top:2px; }
+
+  .gauge { margin-top:16px; }
+  .gaugelabels { display:flex; justify-content:space-between; font-size:11px; color:var(--textDim); margin-bottom:6px; }
+  .gaugetrack { position:relative; height:8px; border-radius:999px; background:var(--panelAlt); border:1px solid var(--border); }
+  .gaugetick { position:absolute; top:50%; left:50%; width:1px; height:16px; background:var(--borderStrong); transform:translate(-50%,-50%); }
+  .gaugedot { position:absolute; top:50%; width:12px; height:12px; border-radius:999px; transform:translate(-50%,-50%); }
+  .gaugefoot { display:flex; justify-content:space-between; font-size:11px; color:var(--textFaint); margin-top:8px; }
+  .sessionline { font-size:11px; color:var(--textFaint); margin-top:12px; }
+
+  .recmain { font-size:18px; font-weight:700; margin:2px 0 8px; }
+  .whytext { font-size:12.5px; color:var(--textDim); line-height:1.5; margin-top:6px; }
+  .sigblock { margin-top:10px; padding-top:10px; border-top:1px solid var(--border); }
+  .siglbl { font-size:10px; text-transform:uppercase; letter-spacing:0.06em; color:var(--textFaint); margin-bottom:4px; }
+  .sigrow { display:flex; justify-content:space-between; font-size:12px; padding:2px 0; }
+
+  .alert { border-radius:10px; padding:12px 14px; }
+  .alerttitle { font-weight:600; font-size:13.5px; margin-bottom:3px; }
+  .alertdetail { font-size:12.5px; color:var(--textDim); line-height:1.5; }
+  .hint { text-align:center; font-size:11px; color:var(--textFaint); padding:8px; }
+
+  .chart { width:100%; height:170px; margin-top:10px; }
+
+  .histlist { margin-top:8px; }
+  .histrow { display:flex; justify-content:space-between; align-items:flex-start; padding:10px 0; border-top:1px solid var(--border); gap:10px; }
+  .histright { display:flex; align-items:center; gap:10px; }
+  .text-right { text-align:right; }
+  .small { font-size:11px; }
+  .badge { display:inline-flex; align-items:center; gap:3px; border-radius:5px; padding:2px 7px; font-size:11px; font-family: ui-monospace, monospace; }
+  .minibtn { border:none; border-radius:5px; padding:5px 9px; font-size:11px; cursor:pointer; background:var(--panelAlt); color:var(--textDim); }
+  .minibtn.bad { background:var(--bad); color:#fff; }
+
+  .methodbody { margin-top:10px; line-height:1.6; }
+  .methodbody p { margin:0 0 9px; }
+  .methodbody b { color:var(--text); }
+
+  .clearzone { text-align:center; padding-top:6px; }
+  .linkbtn { background:none; border:none; color:var(--textFaint); font-size:12px; text-decoration:underline; cursor:pointer; margin:0 4px; }
+  .linkbtn.bad { color:var(--bad); }
+</style>
+</head>
+<body>
+  <div id="app"><div class="loading">Loading…</div></div>
+  <script src="app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('sw.js').catch(function () {});
+      });
+    }
+  </script>
+</body>
+</html>
